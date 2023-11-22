@@ -103,7 +103,7 @@ plt.show()
 
 #+RESULTS:
 
-* All traj
+* Trajectories for all pairs of regulators
 
 Compute three trajectories for all pairs.
 
