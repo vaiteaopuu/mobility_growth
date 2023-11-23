@@ -1,328 +1,93 @@
 * Overview
-This notebook contains all scripts to generate the simulation and the figures
-related figures.
+This repository contains the code to perform the evolutionary simulations.
 
-* One trajectory
+Fig 6; Fig SI 5-6 can be reproduced by running the code snippets in
+~reproduce_fig.org~.
 
-Run and analyze a single trajectory: the example here is for HNS vs FlhDC
+DOI: 10.5281/zenodo.10198999
 
-#+begin_src python :results output
+** Requirements
+The code is written in Python (compatible with version >= 3.10.9) with the
+following dependencies:
+- numpy==1.23.5
+- matplotlib==3.7.0
+- multiprocess==0.70.14
+
+The code has been tested on a Linux machine with 20 cores 12th Gen Intel(R)
+Core(TM) i7. Typically, on simulation for a population size of 2000, 2000
+generations would last less than a minute.
+
+** What do you need for the simulations
+
+To perform the simulations, you need the scripts that are in the ~src/~
+directory. ~src/evo_four_state.py~ contains the functions performing the
+simulations whereas ~src/plots.py~ contains the ones for plotting results. Then,
+the phenotypic parameters (growth and swim) are given in the ~/data/growth.data~
+directory.
+
+#+begin_example
+# Perturbation	Media	Growth_Fitness	Growth_Error (SEM)	Swimming_Fitness	Swimming_Error (SEM)	# Knockdowns
+WT	LB	0	0.00651859610792712	0	0.0313824110090468	0
+CRP	LB	0.03281281502607	0.028674094725906	-0.92222	0.02213130383935	1
+Fis	LB	0.132171670553366	0.012935957123226	-0.775555	0.015130681097127	1
+...
+#+end_example
+
+** How to run a simulation
+
+The snippet below shows how to use the scripts in the src directory to perform
+evolutionary simulations. Here, we show an example for the regulators HNS and
+FlhDC.
+
+The routine ~evo_loop_env_change~ from the ~src.evo_four_states~ script performs
+the evolutionary simulation. First, it requires the phenotypic parameters
+measured. Second, the user can choose the population size, maximum number of
+generations, the frequency at which the environment is changed, and the mutation
+rate in the population.
+
+In the output, the populations as well as the mutations accepted are recorded in
+two variables for each generation. Here, the genotypes are encoded in the
+following way RS = (-1, -1); Delta Local = (1, -1); Delta Global (-1, 1); and
+double knock down = (1, 1).
+
+#+begin_src python
 import numpy as np
 import matplotlib.pyplot as plt
 
 from src.evo_four_states import MUTANTS, read_pheno, get_fitness, sigmoid, evo_loop_env_change, norm_growth
 from collections import Counter
-from src.plots import plot_landscape, compute_traj_mut
 
 gen_a = "HNS"
 gen_b = "FlhDC"
-pheno_env = []
+
+# read the phenotype
 pheno_env_norm = []
 for env in ["LB", "Glucose", "Lactose"]:
-    pheno_env += [read_pheno(gen_a, gen_b, env)]
     pheno_env_norm += [norm_growth(read_pheno(gen_a, gen_b, env))]
 
-NAMES = {(-1, -1): "RS", (-1, 1): "$\\Delta$L", (1, -1): "$\\Delta$G", (1, 1): "$\\Delta$G+$\\Delta$L"}
-names_l = [(-1, -1), (-1, 1), (1, -1), (1, 1)]
-wl = 0.3
-w0 = -1.0
-wk = 2
-temp = 7
+# Fitness parameters
+wl = 0.3                        # lambda
+w0 = -1.0                       # S_0
+wk = 2                          # k
 parms = [wl, w0, wk]
-pop_size = 2000
-nb_gen = 2000
-swap_freq = 200
-burn = 0
+
+# simulation parameters
+temp = 7                        # temperature of generation
+pop_size = 2000                 # population size
+nb_gen = 2000                   # number of generations
+swap_freq = 200                 # frequency at which the environment is changed
+mut_rate = 0.2                  # 20% of mutations
+
+# run the simulation
 pop, traj, traj_mut, env_l, pop_l = evo_loop_env_change(pheno_env_norm,
                                                         nb_el=pop_size,
                                                         nb_steps=nb_gen,
                                                         parms=parms, temp=temp,
                                                         swap_freq=swap_freq,
-                                                        save_pop=True,
-                                                        mut_rate=0.2,
-                                                        burn_out=burn)
-
-fig, ax = plt.subplots(1, 3, figsize=(8.0, 2.5))
-cax_l = [None for _ in range(3)]
-for env in range(3):
-    env_name = ["LB", "Glucose", "Lactose"][env]
-    traj_m = [el for env_, el in zip(env_l, traj_mut) if env_ == env]
-    ax[env].set_title(f"{env_name}")
-    cax_l[env] = plot_landscape(traj_m, pheno_env[env], parms, ax[env], y_lab=env == 0, norm=True)
-    cbar = fig.colorbar(cax_l[env], orientation='vertical')
-plt.tight_layout()
-# plt.savefig(f"./img/land_{gen_a}_{gen_b}_{env}_{parms}.svg", dpi=300, transparent=True)
-plt.show()
-
-# Sample data
-generations = list(range(len(pop_l)))
-
-proportions = {name: [0 for _ in range(len(pop_l))] for name in names_l}
-for step, gen in enumerate(pop_l):
-    tmp = [tuple(el) for el in gen]
-    for name in names_l:
-        proportions[name][step] = 100*tmp.count(name)/pop_size
-
-# Create a color palette using a colormap from matplotlib
-colors = plt.cm.coolwarm(np.linspace(0, 1, 3))
-
-# Plot stacked bar chart with no space between bars
-width = 1.0  # Bar width (default is 0.8)
-bottom_values = [0] * len(generations)
-colors = ["#1F77B4", "#FF7F0E", "grey", "#2CA02C"]
-color_id = {(-1, -1): 2,(1, -1): 0, (1, 1):3, (-1, 1): 1}
-fig, ax = plt.subplots(1, figsize=(4.5, 2.75))
-for index, (gene, prop) in enumerate(proportions.items()):
-    ax.bar(generations, prop, width=width, label=NAMES[gene], color=colors[color_id[gene]] if gene != (-1, -1) else "grey", bottom=bottom_values, alpha=1.0)
-    bottom_values = [i + j for i, j in zip(bottom_values, prop)]
-
-for i in range(nb_gen//(swap_freq-burn)):
-    pos = (i) * (swap_freq-burn-1)
-    env_name = ["LB", "G", "L"][env_l[pos+50]]
-    # ax.text(pos, 101, env_name, rotation=0, ha="center", va="center", fontsize=7)
-    ax.text(pos+(swap_freq-burn)//2, 101, env_name, rotation=0, fontsize=7, ha="center")
-    ax.plot([pos + (swap_freq-burn), pos + (swap_freq-burn)], [0, 100], linewidth=0.5, linestyle="--", c="red")
-
-# Remove top and right axes spines
-ax.spines['right'].set_color('none')
-ax.spines['top'].set_color('none')
-ax.xaxis.set_ticks_position('bottom')
-ax.yaxis.set_ticks_position('left')
-ax.set_xlim([0, nb_gen - (nb_gen//swap_freq * burn)])
-
-# Labeling and presentation tweaks
-ax.set_xlabel('Generation')
-ax.set_ylabel('% in population')
-ax.legend(loc='upper right', ncols=1, bbox_to_anchor=(1.3, 1.00), fontsize=9, frameon=False, handletextpad=0.2, handlelength=0.6)
-plt.tight_layout()
-
-# Display the plot
-# plt.savefig(f"./img/traj_{gen_a}_{gen_b}_{env}_{parms}.png", dpi=300, transparent=True)
-plt.show()
+                                                        mut_rate=mut_rate)
+# pop --- the last population
+# traj --- the fitness along the simulation
+# traj_mut --- the list of mutation recorded along the simulation
+# env_l --- the list indicating in which environment was each generation
+# pop_l --- the population at each generation
 #+end_src
-
-#+RESULTS:
-
-* Trajectories for all pairs of regulators
-
-Compute three trajectories for all pairs.
-
-#+begin_src python
-import numpy as np
-import matplotlib.pyplot as plt
-
-from src.evo_four_states import MUTANTS, read_pheno, get_fitness, sigmoid, evo_loop_env_change, norm_growth
-from collections import Counter
-from src.plots import compute_traj_mut, plot_landscape
-
-glob_g = ["CRP", "Fis", "HNS"]
-local_g = ["FlhDC", "FliZ"]
-NAMES = {(-1, -1): "WT", (-1, 1): "Local", (1, -1): "Global", (1, 1): "Global+Local"}
-names_l = [(-1, -1), (-1, 1), (1, -1), (1, 1)]
-wl = 1.0
-w0 = -1.0
-wk = 2
-parms = [wl, w0, wk]
-pop_size = 1000
-nb_gen = 2000
-swap_freq = 200
-temp = 7
-fig, ax = plt.subplots(3, 6, figsize=(2.5*6, 2.5*3))
-
-for gi, gen_a in enumerate(glob_g):
-    for li, gen_b in enumerate(local_g):
-        pheno_env = []
-        pheno_env_norm = []
-        for env in ["LB", "Glucose", "Lactose"]:
-            pheno_env += [read_pheno(gen_a, gen_b, env)]
-            pheno_env_norm += [norm_growth(read_pheno(gen_a, gen_b, env))]
-
-        env_l, traj_mut = [], []
-        for env_ in range(3):
-            pop, traj, traj_mut_, env_l_, pop_l = evo_loop_env_change(pheno_env_norm, nb_el=pop_size, nb_steps=nb_gen,
-                                                                    parms=parms, temp=temp, swap_freq=swap_freq, env=env_,
-                                                                    save_pop=True, mut_rate=0.1)
-            traj_mut += traj_mut_
-            env_l += env_l_
-        proportions = {name: [0 for _ in range(len(pop_l))] for name in names_l}
-        mut_traj_count = compute_traj_mut(traj_mut)
-
-        out_c = {}
-        in_c = {}
-        for (eli, elj), c in mut_traj_count.items():
-            if eli in in_c:
-                in_c[eli] += c
-            else:
-                in_c[eli] = c
-            if elj in out_c:
-                out_c[elj] += c
-            else:
-                out_c[elj] = c
-
-        cax = [None for _ in range(3)]
-        for env in range(3):
-            env_name = ["LB", "Glucose", "Lactose"][env]
-            traj_m = [el for env_, el in zip(env_l, traj_mut) if env_ == env]
-            if gi == 0:
-                ax[gi, li*3 + env].set_title(f"{env_name}")
-            cax[env] = plot_landscape(traj_m, pheno_env[env], parms, ax[gi, li*3 + env], y_lab=(li*3+env)==0, x_lab=gi==2)
-            cbar = fig.colorbar(cax[env], orientation='vertical')
-
-plt.tight_layout()
-plt.savefig(f"./img/all_comb/land_{parms}.svg", dpi=300, transparent=True)
-plt.show()
-#+end_src
-
-#+RESULTS:
-: None
-
-* The sigmoid function
-
-Illustrative sigmoid function
-
-#+begin_src python
-from src.evo_four_states import MUTANTS, read_pheno, get_fitness
-import matplotlib.pyplot as plt
-import numpy as np
-
-glob_g = ["CRP", "Fis", "HNS"]
-local_g = ["FlhDC", "FliZ"]
-env_l = ["LB", "Glucose", "Lactose"]
-
-tmp_g = []
-tmp_s = []
-for gen_a in glob_g:
-    for gen_b in local_g:
-        for env in env_l:
-            pheno_dic = read_pheno(gen_a, gen_b, env)
-            tmp_g += [val[0] for val in pheno_dic.values()]
-            tmp_s += [val[1] for val in pheno_dic.values()]
-
-
-def sigmoid(z, c, k):
-    return 1/(1 + np.exp(-(z-c)*k))
-
-
-pheno_dic = read_pheno(gen_a, gen_b, env)
-x = np.linspace(-4, 1, num=100)
-
-fig, ax = plt.subplots(1, figsize=(2.5, 2.5))
-n_np, bins_np = np.histogram(tmp_s, 10)
-
-ax.bar(bins_np[:-1], n_np/n_np.max(), color="black", width=0.15)
-
-ax.plot(x, sigmoid(x, -1, 0.5), c="grey", linestyle=":", label="$k = 0.5$")
-ax.plot(x, sigmoid(x, -1, 1), c="grey", linestyle="--", label="$k = 1$")
-ax.plot(x, sigmoid(x, -1, 2), c="grey", linestyle="-", label="$k = 2$")
-
-ax.set_xlabel("Swimming (cm)")
-ax.set_ylabel("Swimming Fitness")
-# plt.hist(tmp_s)
-for el in ["top", "right"]:
-    ax.spines[el].set_visible(False)
-ax.legend(frameon=False, fontsize=10)
-plt.tight_layout()
-plt.savefig("img/sig_k.png", dpi=300, transparent=True)
-plt.show()
-#+end_src
-
-#+RESULTS:
-: None
-
-* Parameters
-
-First, run the script below to compute 21 x 21 x 21 parameters for k, lambda,
-and S_0:
-
-#+begin_src bash
-python compute_matrix.py
-#+end_src
-
-
-#+begin_src python :results output
-from src.evo_four_states import MUTANTS, read_pheno, get_fitness
-from collections import Counter
-import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib.font_manager import FontProperties
-from matplotlib.patches import FancyArrowPatch
-from matplotlib.colors import CenteredNorm
-from numpy import mean, linspace, array, meshgrid
-from glob import glob
-
-nb_el = 21
-wl_l, w0_l, wk_l = np.linspace(0, 1, num=nb_el), np.linspace(-2, 0, num=nb_el), np.linspace(0, 4, num=nb_el)
-res_mat = np.zeros((nb_el, nb_el, nb_el))
-for infile in glob("./parms/pop_1000_*_7.txt"):
-    res_mat += np.load(infile)/len(glob("./parms/pop_1000_*_7.txt"))
-
-# plt.imshow(res_mat_g)
-x, y = meshgrid(wl_l, wk_l)
-fig, cx = plt.subplots(1, figsize=(3, 2.5))
-
-p1, p2, p3 = 0, 6, 15
-cx.contourf(x, y, res_mat[:, p2, :].T, levels=30, cmap="bwr", norm=CenteredNorm(0.5))
-cx.plot([0.3, 0.3], [0, 4], linestyle="--", c="grey")
-cx.annotate(f"$\\lambda=$0.3", xy=(0.32, 3.5), fontsize=15, c="grey")
-
-sm_g = plt.cm.ScalarMappable(cmap="bwr", norm=CenteredNorm(0.5))
-sm_g.set_array(res_mat)  # Set the data values to be mapped to colors
-fig.colorbar(sm_g, ax=cx)
-cx.set_xlabel("$\\lambda$")
-cx.set_ylabel("$k$")
-for el in ["top", "right"]:
-    cx.spines[el].set_visible(False)
-plt.tight_layout()
-
-# plt.savefig("./img/mult_k.png", dpi=300, transparent=True)
-plt.show()
-#+end_src
-
-#+RESULTS:
-
-** All pairs
-
-#+begin_src python :results output
-from src.evo_four_states import MUTANTS, read_pheno, get_fitness
-from collections import Counter
-import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib.font_manager import FontProperties
-from matplotlib.patches import FancyArrowPatch
-from matplotlib.colors import CenteredNorm
-from numpy import mean, linspace, array, meshgrid
-from glob import glob
-
-nb_el = 21
-wl_l, w0_l, wk_l = np.linspace(0, 1, num=nb_el), np.linspace(-2, 0, num=nb_el), np.linspace(0, 4, num=nb_el)
-res_mat = np.zeros((nb_el, nb_el, nb_el))
-glob_g = ["CRP", "Fis", "HNS"]
-local_g = ["FlhDC", "FliZ"]
-
-fig, cx = plt.subplots(3, 2, figsize=(3*2, 2.5*3))
-
-for gi, gr in enumerate(glob_g):
-    for li, lr in enumerate(local_g):
-        res_mat = np.load(f"./parms/pop_1000_{gr}_{lr}_7.txt")
-
-        # plt.imshow(res_mat_g)
-        x, y = meshgrid(wl_l, wk_l)
-
-        p1, p2, p3 = 0, 6, 15
-        cx[gi, li].contourf(x, y, res_mat[:, p2, :].T, levels=30, cmap="bwr", norm=CenteredNorm(0.5))
-        sm_g = plt.cm.ScalarMappable(cmap="bwr", norm=CenteredNorm(0.5))
-        sm_g.set_array(res_mat)  # Set the data values to be mapped to colors
-        fig.colorbar(sm_g, ax=cx[gi, li])
-        cx[gi, li].set_xlabel("$\\lambda$")
-        cx[gi, li].set_ylabel("$k$")
-        cx[gi, li].set_title(f"{gr}/{lr}")
-        for el in ["top", "right"]:
-            cx[gi, li].spines[el].set_visible(False)
-
-plt.tight_layout()
-
-# plt.savefig("./img/mult_all_pair.png", dpi=300, transparent=True)
-plt.show()
-#+end_src
-
-#+RESULTS:

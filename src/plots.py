@@ -1,6 +1,4 @@
 import numpy as np
-import networkx as nx
-import matplotlib.pyplot as plt
 import matplotlib.pyplot as plt
 from matplotlib.font_manager import FontProperties
 from matplotlib.patches import FancyArrowPatch
@@ -9,29 +7,6 @@ from collections import Counter
 
 def sigmoid(z, other=0):
     return 1/(1 + np.exp(-z+other))
-
-
-def plot_graph(G, ax):
-    # Get edge weights for colormap
-    edge_weights = [G[u][v]['weight'] for u, v in G.edges]
-    pos = nx.circular_layout(G)  # Position nodes using spring layout
-    # pos = nx.random_layout(G, seed=42)  # Position nodes using spring layout
-    cmap = plt.get_cmap("bwr")
-    edges = nx.draw_networkx_edges(
-        G,
-        pos,
-        arrowstyle="-|>",
-        arrowsize=10,
-        edge_color=edge_weights if edge_weights is not None else "grey",
-        node_size=500,
-        edge_cmap=cmap,
-        arrows=True,
-        connectionstyle="angle3,angleA=90,angleB=0",
-        alpha=0.5,
-        ax=ax
-    )
-    # nodes = nx.draw_networkx_nodes(G, pos, node_size=500, node_color="dodgerblue", alpha=0.8, ax=ax)
-    nx.draw_networkx_labels(G, pos)
 
 
 def draw_arrow(ax, x1, y1, x2, y2, size, type=None):
@@ -107,15 +82,10 @@ def plot_landscape(traj_mut, pheno_dic, parms, land, y_lab=True, x_lab=True, nor
     mut_traj_count = {el: mut_traj_count[el]/sum(mut_traj_count.values()) for el in mut_traj_count}
     in_c = {-1: 0, 1: 0}
     out_c = {-1: 0, 1: 0}
-    # for i, eli in enumerate(MUTANTS):
-    #     for j, elj in enumerate(MUTANTS):
     for (eli, elj), prob in mut_traj_count.items():
         xi, yi = pheno_dic[eli]
         xj, yj = pheno_dic[elj]
         draw_arrow(land, xi, yi, xj, yj, prob)
-        # print(model(xi, yi, parms), model(xj, yj, parms))
-        # print((eli, elj), mut_traj_count[(eli, elj)])
-        # print("-"*10)
 
     for el in ["top", "right"]:
         land.spines[el].set_visible(False)

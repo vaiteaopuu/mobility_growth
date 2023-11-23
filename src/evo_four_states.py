@@ -9,11 +9,11 @@ Swim = 2
 """
 
 import numpy as np
-# import matplotlib.pyplot as plt
 from collections import Counter
 
 
 MUTANTS = [(-1, -1), (-1, 1), (1, -1), (1, 1)]
+
 
 def read_pheno(gene_a, gene_b, env):
     tmp = {}
@@ -80,16 +80,14 @@ def evo_loop_env_change(pheno_env=None, nb_el=10, nb_steps=100,
                         temp=2,
                         swap_freq=100,
                         env=None,
-                        save_coords=False,
                         mut_rate=0.1,
-                        save_pop=False,
                         burn_out=0):
     pop = np.random.choice([-1, 1], size=(nb_el, 2))
     if env is None:
         env = np.random.choice(range(len(pheno_env)))
     pop_size = pop.shape[0]
-    tmp_fit, traj_mut, traj_mutb = [], [], []
-    pop_l, pop_lb, env_l, env_lb = [], [], [], []
+    tmp_fit, traj_mut = [], []
+    pop_l, env_l = [], []
     bi = 0
     for i in range(nb_steps):
         new_pop, store_mut = mutate_pop(pop, mut_rate)
@@ -105,18 +103,8 @@ def evo_loop_env_change(pheno_env=None, nb_el=10, nb_steps=100,
             traj_mut += [[store_mut[ni] for ni in new_id]]
             pop_l += [np.copy(pop)]
             env_l += [env]
-        else:
-            traj_mutb += [[store_mut[ni] for ni in new_id]]
-            pop_lb += [np.copy(pop)]
-            env_lb += [env]
         bi += 1
-        if save_coords:
-            pop_l += [get_pheno(pop, pheno_env[env])]
         if (i+1) % swap_freq == 0:
             env = np.random.choice(range(len(pheno_env)))
             bi = 0
-    if save_coords or save_pop:
-        # return pop, tmp_fit, traj_mut, env_l, pop_l, traj_mutb, pop_lb, env_lb
-        return pop, tmp_fit, traj_mut, env_l, pop_l
-    else:
-        return pop, tmp_fit, traj_mut, env_l
+    return pop, tmp_fit, traj_mut, env_l, pop_l
