@@ -1,5 +1,5 @@
 * Overview
-This repository contains the code to perform the evolutionary simulations.
+This repository contains the code to perform evolutionary simulations considering pairs of regulators that can be knocked up or down. Using measured phenotypic parameters, the code simulates an evolutionary process by which a population of pairs of regulators is knocked up or down, depending on our fitness function (see paper for details). Then, the analyses of these trajectories are also given in the format of a notebook (reproducing the figure from the paper).
 
 Fig 6; Fig SI 5-6 can be reproduced by running the code snippets in
 ~reproduce_fig.org~.
@@ -7,15 +7,12 @@ Fig 6; Fig SI 5-6 can be reproduced by running the code snippets in
 DOI: 10.5281/zenodo.10198999
 
 ** Requirements
-The code is written in Python (compatible with version >= 3.10.9) with the
-following dependencies:
+The code is written in Python (compatible with version >= 3.10.9) with the following dependencies:
 - numpy==1.23.5
 - matplotlib==3.7.0
 - multiprocess==0.70.14
 
-The code has been tested on a Linux machine with 20 cores 12th Gen Intel(R)
-Core(TM) i7. Typically, on simulation for a population size of 2000, 2000
-generations would last less than a minute.
+The code has been tested on a Linux machine with 20 cores 12th Gen Intel(R) Core(TM) i7. Typically, in a simulation with a population size of 2000, running 2000 generations lasts less than a minute.
 
 ** What do you need for the simulations
 
